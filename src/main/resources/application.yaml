@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: ai-integration
+
+openai:
+  api-key: ${OPEN_AI_KEY}
+  url: https://api.openai.com/v1/responses
