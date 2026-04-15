@@ -1,14 +1,15 @@
 package com.aiintegration.ai.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
+import reactor.core.publisher.Flux;
+
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +23,7 @@ public class OpenAiService {
     private String apiUrl;
 
     private final WebClient webClient;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public OpenAiService(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
@@ -40,6 +42,20 @@ public class OpenAiService {
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)
+                .map(response -> {
+                    try {
+                        JsonNode json = mapper.readTree(response);
+                        return json.path("output")
+                                   .path(0)
+                                   .path("content")
+                                   .path(0)
+                                   .path("text")
+                                   .asText();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return "Error parsing response";
+                    }
+                })
                 .block();
     }
 

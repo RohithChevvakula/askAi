@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #output { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; min-height: 200px; }
+        button { padding: 10px 20px; margin-top: 10px; }
+        input { width: 300px; padding: 8px; }
+    </style>
+</head>
+<body>
+    <h2>Ask AI</h2>
+    <input type="text" id="prompt" placeholder="Enter your prompt">
+    <button onclick="getResponse()">Get Response</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function getResponse() {
+            const prompt = document.getElementById("prompt").value.trim();
+            if (!prompt) {
+                alert("Please enter a prompt.");
+                return;
+            }
+            const output = document.getElementById("output");
+            output.textContent = "Loading...\n";
+
+            try {
+                const response = await fetch(`http://localhost:8080/ask-ai/v1?prompt=${encodeURIComponent(prompt)}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.text();
+                output.textContent = data;
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
