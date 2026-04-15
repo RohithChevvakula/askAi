@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #output { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; min-height: 200px; }
+        button { padding: 10px 20px; margin-top: 10px; }
+        input[type="text"] { width: 300px; padding: 8px; }
+        
+        /* Toggle Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin: 10px 10px 10px 0;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+<body>
+    <h2>Ask AI</h2>
+    <input type="text" id="prompt" placeholder="Enter your prompt">
+    <br>
+    <label>Streaming Mode: </label>
+    <label class="switch">
+        <input type="checkbox" id="streamingToggle">
+        <span class="slider"></span>
+    </label>
+    <span id="modeLabel">Off (Plain Response)</span>
+    <br>
+    <button onclick="handleResponse()">Get Response</button>
+    <pre id="output"></pre>
+
+    <script>
+        let eventSource = null;
+
+        // Update mode label when toggle changes
+        document.getElementById('streamingToggle').addEventListener('change', function() {
+            const label = document.getElementById('modeLabel');
+            label.textContent = this.checked ? 'On (Streaming Response)' : 'Off (Plain Response)';
+        });
+
+        async function handleResponse() {
+            const isStreaming = document.getElementById('streamingToggle').checked;
+            if (isStreaming) {
+                getStreamingResponse();
+            } else {
+                getResponse();
+            }
+        }
+
+        async function getResponse() {
+            const prompt = document.getElementById("prompt").value.trim();
+            if (!prompt) {
+                alert("Please enter a prompt.");
+                return;
+            }
+            const output = document.getElementById("output");
+            output.textContent = "Loading...\n";
+
+            // Close any existing stream
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+
+            try {
+                const response = await fetch(`http://localhost:8080/ask-ai/v1?prompt=${encodeURIComponent(prompt)}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.text();
+                output.textContent = data;
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        function getStreamingResponse() {
+            const prompt = document.getElementById("prompt").value.trim();
+            if (!prompt) {
+                alert("Please enter a prompt.");
+                return;
+            }
+            const output = document.getElementById("output");
+
+            // Close any existing stream
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            output.textContent = "";
+            eventSource = new EventSource(`http://localhost:8080/ask-ai/v2?prompt=${encodeURIComponent(prompt)}`);
+
+            let streamClosed = false;
+
+            eventSource.onmessage = function(event) {
+                setTimeout(() => {
+                    output.textContent += event.data + ' ';
+                }, 100);  // 100ms delay per chunk
+            };
+
+            eventSource.onclose = function(event) {
+                streamClosed = true;
+                console.log("Stream closed normally");
+            };
+
+            eventSource.onerror = function(event) {
+                console.error("EventSource error:", event);
+                // Removed error message display since content is already shown
+                eventSource.close();
+            };
+
+            eventSource.onopen = function(event) {
+                console.log("Stream opened");
+            };
+        }
+    </script>
+</body>
+</html>
