@@ -2,6 +2,7 @@ package com.aiintegration.ai.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -31,8 +32,8 @@ public class OpenAiService {
 
     public String generateResponse(String prompt) {
         Map<String, Object> requestBody = Map.of(
-                "model", "gpt-4o",
-                "input", List.of(Map.of("role", "user", "content", prompt))
+                "model", "gpt-3.5-turbo",
+                "messages", List.of(Map.of("role", "user", "content", prompt))
         );
 
         return webClient.post()
@@ -45,11 +46,10 @@ public class OpenAiService {
                 .map(response -> {
                     try {
                         JsonNode json = mapper.readTree(response);
-                        return json.path("output")
+                        return json.path("choices")
                                    .path(0)
+                                   .path("message")
                                    .path("content")
-                                   .path(0)
-                                   .path("text")
                                    .asText();
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -57,6 +57,34 @@ public class OpenAiService {
                     }
                 })
                 .block();
+    }
+
+    public Flux<String> generateStreamedResponse(String prompt) {
+        Map<String, Object> requestBody = Map.of(
+                "model", "gpt-3.5-turbo",
+                "messages", List.of(Map.of("role", "user", "content", prompt)),
+                "stream", true
+        );
+
+        return webClient.post()
+                .uri(apiUrl)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToFlux(String.class)
+                .filter(data -> !data.equals("[DONE]"))
+                .map(data -> {
+                    try {
+                        JsonNode json = mapper.readTree(data);
+                        return json.path("choices").path(0).path("delta").path("content").asText("");
+                    } catch (Exception e) {
+                        System.out.println("Parse error: " + e.getMessage() + " for data: " + data);
+                        return "";
+                    }
+                })
+                .filter(content -> !content.isEmpty());
     }
 
 }

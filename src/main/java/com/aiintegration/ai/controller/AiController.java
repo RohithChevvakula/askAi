@@ -28,5 +28,12 @@ public class AiController {
     public String ask(@RequestParam String prompt) {
         System.out.println("Controller V1 hit with prompt: " + prompt);
         return aiService.generateResponse(prompt);
+    }
+
+    @GetMapping(value = "/v2", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> askStream(@RequestParam String prompt) {
+        System.out.println("Controller V2 hit with prompt: " + prompt);
+        return aiService.generateStreamedResponse(prompt)
+                .map(chunk -> ServerSentEvent.builder(chunk).build());
     }   
 }
